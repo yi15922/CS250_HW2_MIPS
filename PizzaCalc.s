@@ -148,40 +148,94 @@
 #     return;
 # }
 
-# int main(int argc, char* argv[]){
-main: 
-    
-    li      $v0, 4          # print name prompt
-    la		$a0, name
-    syscall
+# Compares two strings (hopefully) if a0>a1, v0>0
+str_compare: 
+    # Push t0 and t1 on stack
+    addi    $sp, -8
+    sw      $t0, 0($sp)
+    sw      $t1, -4($sp)
 
-    li      $v0, 8          # read console input into buf
-    la      $a0, buf
+_str_compare_loop: 
+    lb      $t0, 0($a0)     # char of a0 in t0
+    lb      $t1, 0($a1)     # char of a1 in t1
+
+    bne     $t0 $t1, _str_compare_ret        # if current char not equal return
+
+    addi    $a0, 1          # if current char equal then look at next char
+    addi    $a1, 1
+    bnez    $t0, _str_compare_loop    # if end of a0, fall through to return
+
+_str_compare_ret: 
+
+    sub     $v0, $t0 $t1    # find difference between t0 and t1, will be 0 if equal
+
+    # Pop t0 and t1 from stack
+    lw      $t1, -4($sp)
+    lw      $t0, 0($sp)
+    addi    $sp, 8
+
+    jr      $ra             # return the difference
+
+
+# Compares 2 floats
+float_compare: 
+    sub.s   $f0, $f12 $f13
+    jr      $ra
+
+
+
+# String printing function: prints string in a0
+str_print:
+    li      $v0, 4
+    syscall
+    jr      $ra
+
+str_copy:
+
+
+
+get_pizza: 
+    # Save return address
+    addi    $sp, $sp -4
+    sw		$ra, 0($sp)
+
+    # Allocating heap space for node
+    # |--------------name: 64 bytes------------|---PPD: 4 bytes----|----next: 4bytes-----|
+    li      $a0, 72
+    li      $v0, 9
+    syscall
+    move    $t4, $v0        # pointer to allocated heap in t4
+
+    # Getting name
+    la		$a0, name
+    jal     str_print       # request name
+
+    li      $v0, 8          # read console input into heap
+    la      $a0, 0($t4)
     li      $a1, 64
     syscall
 
-    li      $v0, 4          # print diameter prompt
+    # Check for DONE
+    la      $a1, done       # place DONE into a1 to compare
+    jal     str_compare
+    beqz    $v0, _no_pizza  # if done, return 0
+
+
     la		$a0, diam
-    syscall
+    jal     str_print       # request diameter
 
     li      $v0, 6          # read console input into f0
     syscall 
     mov.s 	$f4, $f0		# copy diameter to f4
 
-    li      $v0, 4          # print cost prompt
     la		$a0, cost
-    syscall
+    jal     str_print       # request cost
 
     li      $v0, 6          # read console input into f0
     syscall 
     mov.s 	$f5, $f0		# copy cost to f5
 
-    
-
-    la      $a0, buf        # print name
-    li      $v0, 4
-    syscall
-
+    # Calculating pizza per dollar
     l.s     $f6, two        # f6 = 2
     div.s   $f4, $f4 $f6    # f4 = diameter/2
     mul.s   $f4, $f4 $f4    # f4 = (diam/2)^2
@@ -189,10 +243,69 @@ main:
     mul.s   $f4, $f4 $f6    # f4 = area of pizza
     div.s   $f4, $f4 $f5    # f4 = pizza per dollar
 
+
+    swc1    $f4, 64($t4)     # store pizza per dollar to node
+
+    # Setting next field to null
+    lw		$zero, 68($t4)	
+    
+
+
+    # Printing results
+    la      $a0, 0($t4)     # print name
+    jal     str_print
+
     li      $v0, 2          # print pizza per dollar
-    mov.s   $f12, $f4
+    lwc1    $f12, 64($t4)
     syscall
 
+    la      $a0, nln
+    jal     str_print
+
+
+    # Restore return address
+    lw      $ra, 0($sp)
+    addi    $sp, 4
+
+    # return pointer of node on successful retrieval 
+    move    $v0, $t4
+    jr      $ra
+
+_no_pizza: 
+    # Restore return address
+    lw      $ra, 0($sp)
+    addi    $sp, 4
+
+    # return 0 (v0 is already 0)
+    jr      $ra
+
+    
+
+# Main
+main: 
+
+    # Save main's return address
+    addi    $sp, $sp -4
+    sw		$ra, 0($sp)		
+
+    # Get the next pizza
+_get_pizza_loop: 
+    jal     get_pizza
+    beqz    $v0, _continue  # if no more pizza, continue to next part
+
+
+
+    b       _get_pizza_loop # otherwise keep getting pizzas
+
+_continue: 
+
+
+
+
+_exit: 
+    # Restore main return address
+    lw      $ra, 0($sp)
+    addi    $sp, 4
     li      $v0, 0
     jr		$ra	
     
@@ -243,7 +356,7 @@ diam:   .asciiz "Pizza diameter: "
 cost:   .asciiz "Pizza cost: "
 nln:    .asciiz "\n"
 space:  .asciiz " " 
-done:   .asciiz "DONE"
+done:   .asciiz "DONE\n"
 
 PI:     .float 3.14159265358979323846
 two:    .float 2.0
