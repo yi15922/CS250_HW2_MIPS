@@ -102,14 +102,6 @@ _str_compare_ret:
 
     jr      $ra             # return the difference
 
-
-# Compares 2 floats
-# takes inputs from f12 and f13
-# returns to f0
-float_compare: 
-    sub.s   $f0, $f12 $f13
-    jr      $ra
-
 # Comparator for nodes
 # Takes current in a0 and iter in a1
 # Returns positive, negative or 0 in v0
@@ -121,7 +113,7 @@ node_compare:
     # First compare PPD
     lwc1    $f12, 64($a1)       # hold iter.pizzaPerDollar in f12
     lwc1    $f13, 64($a0)       # hold current.pizzaPerDollar in f13
-    jal     float_compare
+    sub.s   $f0, $f12 $f13      # compare floats
     mfc1    $v0, $f0            # comparison result is in v0
     bnez    $v0, _node_compare_done  # if mismatch, comparison done
 
@@ -129,7 +121,6 @@ node_compare:
     la      $a0, 0($a0)
     la      $a1, 0($a1)
     jal     str_compare
-    bnez    $v0, _node_compare_done  # if mismatch, comparison done
 
 _node_compare_done: 
     # Restore return address
@@ -154,7 +145,7 @@ get_pizza:
     sw		$ra, 0($sp)
 
     # Allocating heap space for node
-    # |--------------name: 64 bytes------------|---PPD: 4 bytes----|----next: 4bytes-----|
+    # |--------------name: 64------------|---PPD: 4----|----next: 4-----|
     li      $a0, 72
     li      $v0, 9
     syscall
@@ -210,13 +201,13 @@ _remove_nln:
     mul.s   $f4, $f4 $f6    # f4 = area of pizza
     div.s   $f4, $f4 $f5    # f4 = pizza per dollar
 
-
     swc1    $f4, 64($t4)     # store pizza per dollar to node
+
+
 
 _return_node: 
     # Setting next field to null
     sw		$zero, 68($t4)	
-
 
     # Restore return address
     lw      $ra, 0($sp)
@@ -227,10 +218,9 @@ _return_node:
     jr      $ra
 
 _zero_PPD: 
-    
-    sw      $zero, 64($t4)   # set PDD to 0
+    sw      $zero, 64($t4)   # set PPD to 0
     b       _return_node
-
+    
 _no_pizza: 
     # Restore return address
     lw      $ra, 0($sp)
@@ -241,7 +231,6 @@ _no_pizza:
 
 # Main
 main: 
-
     # Save main's return address
     addi    $sp, $sp -4
     sw		$ra, 0($sp)		
@@ -280,7 +269,6 @@ _print_list:
 
     lw      $s0, 68($s0)    # head = head.next
     b       _print_list       
-
 
 _exit: 
     # Restore main return address
