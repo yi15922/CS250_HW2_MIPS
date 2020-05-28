@@ -104,49 +104,107 @@
 #  the pointer to the head pointer of linked list
 #  */
 # void insert(Pizza* current, Pizza** head){
-    
+
+
+# Function: inserts new pizza to correct place in linked list
+# gets current pizza from a0
+# gets head pizza from a1
+# returns new head pointer in v0
+
+insert: 
+    # Save return address
+    addi    $sp, -4
+    sw      $ra, 0($sp)
+
 #     // Declare a prev placeholder and an iterator
 #     Pizza* prev = NULL;
+    li      $t0, 0      # prev is in t0, initialize to 0       
 #     Pizza* iter = *head;
-    
-#     // Advance to the element with a lower pizzaPerDOllar value
+    move    $t1, $a1    # iter is in t1
+    move    $t2, $a0    # current is in t2
+    move    $t4, $a1    # head is in t4
+
+_compare_PPD: 
 #     while (iter != NULL && iter->pizzaPerDollar > current->pizzaPerDollar){
+    beqz    $t1, _next          # end the loop if at end of list
+    lwc1    $f12, 64($t1)       # hold iter.pizzaPerDollar in f12
+    lwc1    $f13, 64($t2)       # hold current.pizzaPerDollar in f13
+
+    jal     float_compare
+
+    mfc1    $t3, $f0            # comparison result is in t3
+    blez    $t3, _next          # if iter.PDD <= current.PDD, end loop
+
+#     // Advance to the element with a lower pizzaPerDollar value
 #         prev = iter;
+    move    $t0, $t1 
 #         iter = iter->next;
+    lw      $t1, 68($t1)
 #     }
+    b       _compare_PPD
     
+_next:
 #     // If this is the first node
 #     if (prev == NULL){
-        
+    bnez    $t0, _compare_name
 #         current->next = iter; // Add the node to the beginning
+    sw      $t1, 68($t2)
 #         *head = current; // And update the head pointer's pointer
+    move    $t4, $t2
+    b       _head_return
 
 #     } else {
-        
+_compare_name: 
 #         // In case the two pizzaPerDollar are the same
 #         while (iter != NULL && iter->pizzaPerDollar == current->pizzaPerDollar){
-            
+    beqz    $t1, _put_node
+    bnez    $t3, _put_node
+
 #             // If the next node is higher alphabetically
 #             if (strcmp(current->name, iter->name) < 0){
-                
+    la      $a0, 0($t2)
+    la      $a1, 0($t1)
+    jal     str_compare
+    bgtz    $v0, _continue
 #                 // Insert this node right before the next
 #                 prev->next = current;
+    sw      $t2, 68($t0)
 #                 current->next = iter;
+    sw      $t1, 68($t2)
 #                 return;
+    b       _head_return
 #             }
             
 #             // Otherwise keep searching for a place to put it
+_continue: 
 #             prev = iter;
+    move    $t0, $t1
 #             iter = iter->next;
+    lw      $t1, 68($t1)
+    b       _compare_name
 #         }
-        
+_put_node: 
+
 #         // If pizzaPerDollar are not the same then insert the new node right here
 #         prev->next = current;
+    sw      $t2, 68($t0)
+
 #         current->next = iter;
+    sw      $t1, 68($t2)
 #     }
-        
-#     return;
+      #     return;
+_head_return: 
+
+    # Restore return address
+    lw      $ra, 0($sp)
+    addi    $sp, 4
+
+    move    $v0, $t4
+    jr      $ra
 # }
+
+
+
 
 # Compares two strings (hopefully) if a0>a1, v0>0
 str_compare: 
@@ -190,10 +248,10 @@ str_print:
     syscall
     jr      $ra
 
-str_copy:
 
-
-
+# Function: gets user input and creates a pizza node
+# with the next field set to null
+# returns pizza pointer in v0
 get_pizza: 
     # Save return address
     addi    $sp, $sp -4
@@ -215,6 +273,16 @@ get_pizza:
     li      $a1, 64
     syscall
 
+    # Removing the new line character at end of input
+    move    $t0, $t4     # make copy of heap pointer
+_remove_nln: 
+    lb      $t1, 0($t0)     # load a char of name
+    addi    $t0, 1          # increment by 1 char
+    bnez    $t1, _remove_nln  # keep searching for eos
+
+    addi    $t0, -2         # on finding eos, back up 2 chars to nln
+    sb      $zero, 0($t0)   # overwrite nln with eos
+
     # Check for DONE
     la      $a1, done       # place DONE into a1 to compare
     jal     str_compare
@@ -228,11 +296,14 @@ get_pizza:
     syscall 
     mov.s 	$f4, $f0		# copy diameter to f4
 
+
     la		$a0, cost
     jal     str_print       # request cost
 
     li      $v0, 6          # read console input into f0
     syscall 
+    mfc1    $t5, $f0
+    beqz    $t5, _zero_PPD  # check if cost is 0
     mov.s 	$f5, $f0		# copy cost to f5
 
     # Calculating pizza per dollar
@@ -246,21 +317,9 @@ get_pizza:
 
     swc1    $f4, 64($t4)     # store pizza per dollar to node
 
+_return_node: 
     # Setting next field to null
-    lw		$zero, 68($t4)	
-    
-
-
-    # Printing results
-    la      $a0, 0($t4)     # print name
-    jal     str_print
-
-    li      $v0, 2          # print pizza per dollar
-    lwc1    $f12, 64($t4)
-    syscall
-
-    la      $a0, nln
-    jal     str_print
+    sw		$zero, 68($t4)	
 
 
     # Restore return address
@@ -270,6 +329,11 @@ get_pizza:
     # return pointer of node on successful retrieval 
     move    $v0, $t4
     jr      $ra
+
+_zero_PPD: 
+    
+    sw      $zero, 64($t4)   # set PDD to 0
+    b       _return_node
 
 _no_pizza: 
     # Restore return address
@@ -288,16 +352,42 @@ main:
     addi    $sp, $sp -4
     sw		$ra, 0($sp)		
 
+    # Head pointer is s0
+    li      $s0, 0          # initialize head pointer to 0
+
     # Get the next pizza
 _get_pizza_loop: 
-    jal     get_pizza
-    beqz    $v0, _continue  # if no more pizza, continue to next part
+    jal     get_pizza       # pizza node returned to v0
+    beqz    $v0, _print_list  # if no more pizza, start printing
+
+    move    $a0, $v0        # pass current pizza in a0
+    move    $a1, $s0        # pass head of list in a1
+    jal     insert          # call insert and receive head pointer to new list
+    move    $s0, $v0        # copy head pointer into s0
+
+    b       _get_pizza_loop # keep getting pizzas
+    
+_print_list: 
+    beqz    $s0, _exit          # while head != 0
+
+    # Printing results
+    la      $a0, 0($s0)     # print name
+    jal     str_print
+
+    la      $a0, space
+    jal     str_print
+
+    li      $v0, 2          # print pizza per dollar
+    lwc1    $f12, 64($s0)
+    syscall
+
+    la      $a0, nln
+    jal     str_print
+
+    lw      $s0, 68($s0)    # head = head.next
+    b       _print_list       
 
 
-
-    b       _get_pizza_loop # otherwise keep getting pizzas
-
-_continue: 
 
 
 
@@ -356,7 +446,7 @@ diam:   .asciiz "Pizza diameter: "
 cost:   .asciiz "Pizza cost: "
 nln:    .asciiz "\n"
 space:  .asciiz " " 
-done:   .asciiz "DONE\n"
+done:   .asciiz "DONE"
 
 PI:     .float 3.14159265358979323846
 two:    .float 2.0
