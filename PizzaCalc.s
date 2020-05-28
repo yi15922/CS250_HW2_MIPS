@@ -1,109 +1,7 @@
 
 .align 2
-
 .text
 
-# // Defining constants
-# #define MAX 64
-# #define PI 3.14159265358979323846
-
-
-
-# /*
-#  Type definition for Pizza
-#  Has 3 fields: name, pizzaPerCost, and next
-#  Call with Pizza
-#  */
-# typedef struct Pizza {
-#     char* name;
-#     float pizzaPerDollar;
-#     Pizza* next;
-# } Pizza;
-
-
-# /*
-#  Function to create a Pizza node
-#  takes FILE* as input
-#  uses fgets() to read each line
-#  uses a for loop to count tokens
-#  allocates new Pizza* on each call
- 
-#  returns a Pizza*
-#  */
-# Pizza* create(FILE* theFile){
-#     char str[MAX] = "empty"; // Buffer, placeholder to check if file is empty
-#     char done[] = "DONE\n"; // Done has a newline after it... wtf?
-
-#     // Allocate a new Pizza*
-#     Pizza* aPizza = (struct Pizza*)malloc(sizeof(Pizza));
-
-#     // Token counter: 0 = name, 1 = diameter, 2 = cost
-#     for (int i = 0; i < 3; i++){
-        
-#         // Read one line
-#         fgets(str, MAX, theFile);
-        
-#         // Buffer is unchanged if file is empty
-#         if (strcmp(str, "empty") == 0){
-#             printf("PIZZA FILE IS EMPTY");
-            
-#             // If no pizza, panic and yeet out everything
-
-#             free(aPizza);
-#             return NULL;
-#         }
-        
-#         // Return NULL if "DONE" is encountered
-#         if (strcmp(str, done) == 0){
-#             free(aPizza);
-#             return NULL;
-#         }
-        
-#         // Make a copy of buffer
-#         char* copiedString = (char*)malloc(sizeof(char)*MAX);
-#         strcpy(copiedString, str);
-#         strtok(copiedString, "\n"); // Remove any newline character at the end
-
-#         // Token 1 = name
-#         if (i == 0){
-#             aPizza->name = copiedString;
-#         }
-        
-#         // Token 2 = diameter, temporarily storing in pizzaPerDollar
-#         if (i == 1){
-#             aPizza->pizzaPerDollar = atof(copiedString);
-#             free(copiedString);
-#         }
-        
-#         // Token 2 = cost, do the math
-#         if (i == 2){
-#             // If cost is 0, no pizza, there is no free lunch!
-#             if (!atof(copiedString)){
-
-#                 aPizza->pizzaPerDollar = 0;
-#                 free(copiedString);
-#             } else {
-#                 float cost = atof(copiedString);
-#                 float PPD = pow(aPizza->pizzaPerDollar/2, 2)*PI/cost;
-#                 free(copiedString);
-#                 aPizza->pizzaPerDollar = PPD;
-#             }
-#         }
-#     }
-    
-#     aPizza->next = NULL; // Initialize the next field
-#     return aPizza;
-# }
-
-
-# /*
-#  Function for inserting nodes alphabetically
-#  maybe a tree could work too?
- 
-#  Takes the pointer to the node being inserted and
-#  the pointer to the head pointer of linked list
-#  */
-# void insert(Pizza* current, Pizza** head){
 
 
 # Function: inserts new pizza to correct place in linked list
@@ -207,6 +105,8 @@ _head_return:
 
 
 # Compares two strings (hopefully) if a0>a1, v0>0
+# takes inputs from a0 and a1
+# returns to v0
 str_compare: 
     # Push t0 and t1 on stack
     addi    $sp, -8
@@ -236,6 +136,8 @@ _str_compare_ret:
 
 
 # Compares 2 floats
+# takes inputs from f12 and f13
+# returns to f0
 float_compare: 
     sub.s   $f0, $f12 $f13
     jr      $ra
@@ -343,8 +245,6 @@ _no_pizza:
     # return 0 (v0 is already 0)
     jr      $ra
 
-    
-
 # Main
 main: 
 
@@ -388,57 +288,12 @@ _print_list:
     b       _print_list       
 
 
-
-
-
-
 _exit: 
     # Restore main return address
     lw      $ra, 0($sp)
     addi    $sp, 4
     li      $v0, 0
     jr		$ra	
-    
-
-
-    
-#     // Allocate a pointer to the head pointer of linked list
-#     Pizza** head = (Pizza**)malloc(sizeof(Pizza*));
-#     *head = NULL;
-    
-
-#     while (1){
-        
-#         // Create a new node
-#         Pizza* current = create(theFile);
-        
-#         // If the node returns null then either file is empty or finished
-#         if (current == NULL){
-#             fclose(theFile);
-#             break;
-#         }
-        
-#         // Insert the new node created to correct place in linked list
-#         insert(current, head);
-#     }
-    
-#     // Point an iterator to first node
-#     Pizza* iter = *head;
-#     Pizza* temp; // The third hand
-    
-#     // Print the list of pizza while releasing memory allocated
-#     while (iter != NULL){
-#         printf("%s %f\n", iter->name, iter->pizzaPerDollar);
-#         free(iter->name);
-#         temp = iter;
-#         iter = iter->next;
-#         free(temp);
-#     }
-    
-#     // Release everything else
-#     free(head);
-#     return EXIT_SUCCESS;
-# }
 
 .data
 name:   .asciiz "Pizza name: " 
@@ -450,5 +305,3 @@ done:   .asciiz "DONE"
 
 PI:     .float 3.14159265358979323846
 two:    .float 2.0
-
-buf:    .space 64
