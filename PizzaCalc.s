@@ -3,7 +3,6 @@
 .text
 
 
-
 # Function: inserts new pizza to correct place in linked list
 # gets current pizza from a0
 # gets head pizza from a1
@@ -22,68 +21,39 @@ insert:
     move    $t2, $a0    # current is in t2
     move    $t4, $a1    # head is in t4
 
-_compare_PPD: 
+# Find the place to insert 
+_find_insert: 
 #     while (iter != NULL && iter->pizzaPerDollar > current->pizzaPerDollar){
     beqz    $t1, _next          # end the loop if at end of list
-    lwc1    $f12, 64($t1)       # hold iter.pizzaPerDollar in f12
-    lwc1    $f13, 64($t2)       # hold current.pizzaPerDollar in f13
+    
+    move    $a0, $t2            # hold current in a0
+    move    $a1, $t1            # hold iter in a1
 
-    jal     float_compare
+    jal     node_compare
+    blez    $v0, _next          # if iter <= current, end loop
 
-    mfc1    $t3, $f0            # comparison result is in t3
-    blez    $t3, _next          # if iter.PDD <= current.PDD, end loop
-
-#     // Advance to the element with a lower pizzaPerDollar value
+    # Otherwise keep searching
 #         prev = iter;
     move    $t0, $t1 
 #         iter = iter->next;
     lw      $t1, 68($t1)
 #     }
-    b       _compare_PPD
+    b       _find_insert
     
 _next:
-#     // If this is the first node
+#   If this is the first node
 #     if (prev == NULL){
-    bnez    $t0, _compare_name
+    bnez    $t0, _put_node
 #         current->next = iter; // Add the node to the beginning
     sw      $t1, 68($t2)
 #         *head = current; // And update the head pointer's pointer
     move    $t4, $t2
     b       _head_return
 
-#     } else {
-_compare_name: 
-#         // In case the two pizzaPerDollar are the same
-#         while (iter != NULL && iter->pizzaPerDollar == current->pizzaPerDollar){
-    beqz    $t1, _put_node
-    bnez    $t3, _put_node
-
-#             // If the next node is higher alphabetically
-#             if (strcmp(current->name, iter->name) < 0){
-    la      $a0, 0($t2)
-    la      $a1, 0($t1)
-    jal     str_compare
-    bgtz    $v0, _continue
-#                 // Insert this node right before the next
-#                 prev->next = current;
-    sw      $t2, 68($t0)
-#                 current->next = iter;
-    sw      $t1, 68($t2)
-#                 return;
-    b       _head_return
-#             }
+#     }
             
-#             // Otherwise keep searching for a place to put it
-_continue: 
-#             prev = iter;
-    move    $t0, $t1
-#             iter = iter->next;
-    lw      $t1, 68($t1)
-    b       _compare_name
-#         }
+# Insert the new node right here
 _put_node: 
-
-#         // If pizzaPerDollar are not the same then insert the new node right here
 #         prev->next = current;
     sw      $t2, 68($t0)
 
@@ -97,12 +67,10 @@ _head_return:
     lw      $ra, 0($sp)
     addi    $sp, 4
 
+    # Load head in v0 for return
     move    $v0, $t4
     jr      $ra
 # }
-
-
-
 
 # Compares two strings (hopefully) if a0>a1, v0>0
 # takes inputs from a0 and a1
@@ -142,7 +110,33 @@ float_compare:
     sub.s   $f0, $f12 $f13
     jr      $ra
 
+# Comparator for nodes
+# Takes current in a0 and iter in a1
+# Returns positive, negative or 0 in v0
+node_compare: 
+    # Save return address
+    addi    $sp, -4
+    sw      $ra, 0($sp)
 
+    # First compare PPD
+    lwc1    $f12, 64($a1)       # hold iter.pizzaPerDollar in f12
+    lwc1    $f13, 64($a0)       # hold current.pizzaPerDollar in f13
+    jal     float_compare
+    mfc1    $v0, $f0            # comparison result is in v0
+    bnez    $v0, _node_compare_done  # if mismatch, comparison done
+
+    # If PPD is equal, compare names
+    la      $a0, 0($a0)
+    la      $a1, 0($a1)
+    jal     str_compare
+    bnez    $v0, _node_compare_done  # if mismatch, comparison done
+
+_node_compare_done: 
+    # Restore return address
+    lw      $ra, 0($sp)
+    addi    $sp, 4
+    # v0 already contains comparison result
+    jr      $ra
 
 # String printing function: prints string in a0
 str_print:
