@@ -9,45 +9,49 @@
 # returns new head pointer in v0
 
 insert: 
-    # Save return address
-    addi    $sp, -4
+    # Save return address, s1, s2, s3, s4
+    addi    $sp, -20
     sw      $ra, 0($sp)
+    sw      $s1, -4($sp)
+    sw      $s2, -8($sp)
+    sw      $s3, -12($sp)
+    sw      $s4, -16($sp)
 
 #     // Declare a prev placeholder and an iterator
 #     Pizza* prev = NULL;
-    li      $t0, 0      # prev is in t0, initialize to 0       
+    li      $s3, 0      # prev is in s3, initialize to 0       
 #     Pizza* iter = *head;
-    move    $t1, $a1    # iter is in t1
-    move    $t2, $a0    # current is in t2
-    move    $t4, $a1    # head is in t4
+    move    $s1, $a1    # iter is in s1
+    move    $s2, $a0    # current is in s2
+    move    $s4, $a1    # head is in s4
 
 # Find the place to insert 
 _find_insert: 
 #     while (iter != NULL && iter->pizzaPerDollar > current->pizzaPerDollar){
-    beqz    $t1, _next          # end the loop if at end of list
+    beqz    $s1, _next          # end the loop if at end of list
     
-    move    $a0, $t2            # hold current in a0
-    move    $a1, $t1            # hold iter in a1
+    move    $a0, $s2            # hold current in a0
+    move    $a1, $s1            # hold iter in a1
 
     jal     node_compare
     blez    $v0, _next          # if iter <= current, end loop
 
     # Otherwise keep searching
 #         prev = iter;
-    move    $t0, $t1 
+    move    $s3, $s1 
 #         iter = iter->next;
-    lw      $t1, 68($t1)
+    lw      $s1, 68($s1)
 #     }
     b       _find_insert
     
 _next:
 #   If this is the first node
 #     if (prev == NULL){
-    bnez    $t0, _put_node
+    bnez    $s3, _put_node
 #         current->next = iter; // Add the node to the beginning
-    sw      $t1, 68($t2)
+    sw      $s1, 68($s2)
 #         *head = current; // And update the head pointer's pointer
-    move    $t4, $t2
+    move    $s4, $s2
     b       _head_return
 
 #     }
@@ -55,20 +59,24 @@ _next:
 # Insert the new node right here
 _put_node: 
 #         prev->next = current;
-    sw      $t2, 68($t0)
+    sw      $s2, 68($s3)
 
 #         current->next = iter;
-    sw      $t1, 68($t2)
+    sw      $s1, 68($s2)
 #     }
       #     return;
 _head_return: 
-
-    # Restore return address
-    lw      $ra, 0($sp)
-    addi    $sp, 4
-
     # Load head in v0 for return
-    move    $v0, $t4
+    move    $v0, $s4
+
+    # Restore return address, s1, s2, s3, s4
+    lw      $s4, -16($sp)
+    lw      $s3, -12($sp)
+    lw      $s2, -8($sp)
+    lw      $s1, -4($sp)
+    lw      $ra, 0($sp)
+    addi    $sp, 20
+
     jr      $ra
 # }
 
@@ -76,10 +84,6 @@ _head_return:
 # takes inputs from a0 and a1
 # returns to v0
 str_compare: 
-    # Push t0 and t1 on stack
-    addi    $sp, -8
-    sw      $t0, 0($sp)
-    sw      $t1, -4($sp)
 
 _str_compare_loop: 
     lb      $t0, 0($a0)     # char of a0 in t0
@@ -92,14 +96,7 @@ _str_compare_loop:
     bnez    $t0, _str_compare_loop    # if end of a0, fall through to return
 
 _str_compare_ret: 
-
     sub     $v0, $t0 $t1    # find difference between t0 and t1, will be 0 if equal
-
-    # Pop t0 and t1 from stack
-    lw      $t1, -4($sp)
-    lw      $t0, 0($sp)
-    addi    $sp, 8
-
     jr      $ra             # return the difference
 
 # Comparator for nodes
@@ -140,28 +137,29 @@ str_print:
 # with the next field set to null
 # returns pizza pointer in v0
 get_pizza: 
-    # Save return address
-    addi    $sp, $sp -4
+    # Save return address, s5
+    addi    $sp, $sp -8
     sw		$ra, 0($sp)
+    sw      $s5, -4($sp)
 
     # Allocating heap space for node
     # |--------------name: 64------------|---PPD: 4----|----next: 4-----|
     li      $a0, 72
     li      $v0, 9
     syscall
-    move    $t4, $v0        # pointer to allocated heap in t4
+    move    $s5, $v0        # pointer to allocated heap in s5
 
     # Getting name
     la		$a0, name
     jal     str_print       # request name
 
     li      $v0, 8          # read console input into heap
-    la      $a0, 0($t4)
+    la      $a0, 0($s5)
     li      $a1, 64
     syscall
 
     # Removing the new line character at end of input
-    move    $t0, $t4     # make copy of heap pointer
+    move    $t0, $s5     # make copy of heap pointer
 _remove_nln: 
     lb      $t1, 0($t0)     # load a char of name
     addi    $t0, 1          # increment by 1 char
@@ -194,40 +192,33 @@ _remove_nln:
     mov.s 	$f5, $f0		# copy cost to f5
 
     # Calculating pizza per dollar
-    l.s     $f6, two        # f6 = 2
-    div.s   $f4, $f4 $f6    # f4 = diameter/2
-    mul.s   $f4, $f4 $f4    # f4 = (diam/2)^2
-    l.s     $f6, PI         # f6 = PI
+    mul.s   $f4, $f4 $f4    # f4 = diam^2
+    l.s     $f6, PIdiv4     # f6 = PI/4
     mul.s   $f4, $f4 $f6    # f4 = area of pizza
     div.s   $f4, $f4 $f5    # f4 = pizza per dollar
 
-    swc1    $f4, 64($t4)     # store pizza per dollar to node
-
+    swc1    $f4, 64($s5)     # store pizza per dollar to node
 
 
 _return_node: 
     # Setting next field to null
-    sw		$zero, 68($t4)	
-
-    # Restore return address
-    lw      $ra, 0($sp)
-    addi    $sp, 4
-
+    sw		$zero, 68($s5)	
     # return pointer of node on successful retrieval 
-    move    $v0, $t4
-    jr      $ra
+    move    $v0, $s5
 
-_zero_PPD: 
-    sw      $zero, 64($t4)   # set PPD to 0
-    b       _return_node
-    
 _no_pizza: 
-    # Restore return address
+    # Restore return address, s5
     lw      $ra, 0($sp)
-    addi    $sp, 4
+    lw      $s5, -4($sp)
+    addi    $sp, 8
 
     # return 0 (v0 is already 0)
     jr      $ra
+
+_zero_PPD: 
+    sw      $zero, 64($s5)   # set PPD to 0
+    b       _return_node
+
 
 # Main
 main: 
@@ -246,7 +237,7 @@ _get_pizza_loop:
     move    $a0, $v0        # pass current pizza in a0
     move    $a1, $s0        # pass head of list in a1
     jal     insert          # call insert and receive head pointer to new list
-    move    $s0, $v0        # copy head pointer into s0
+    move    $s0, $v0        # copy new head pointer into s0
 
     b       _get_pizza_loop # keep getting pizzas
     
@@ -285,5 +276,5 @@ nln:    .asciiz "\n"
 space:  .asciiz " " 
 done:   .asciiz "DONE"
 
-PI:     .float 3.14159265358979323846
+PIdiv4: .float 0.7853981634
 two:    .float 2.0
