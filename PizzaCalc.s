@@ -84,8 +84,6 @@ _head_return:
 # takes inputs from a0 and a1
 # returns to v0
 str_compare: 
-
-_str_compare_loop: 
     lb      $t0, 0($a0)     # char of a0 in t0
     lb      $t1, 0($a1)     # char of a1 in t1
 
@@ -93,7 +91,7 @@ _str_compare_loop:
 
     addi    $a0, 1          # if current char equal then look at next char
     addi    $a1, 1
-    bnez    $t0, _str_compare_loop    # if end of a0, fall through to return
+    bnez    $t0, str_compare    # if end of a0, fall through to return
 
 _str_compare_ret: 
     sub     $v0, $t0 $t1    # find difference between t0 and t1, will be 0 if equal
@@ -187,22 +185,21 @@ _remove_nln:
 
     li      $v0, 6          # read console input into f0
     syscall 
+
     mfc1    $t5, $f0
-    beqz    $t5, _zero_PPD  # check if cost is 0
-    mov.s 	$f5, $f0		# copy cost to f5
+    beqz    $t5, _return_node  # check if cost is 0
 
     # Calculating pizza per dollar
     mul.s   $f4, $f4 $f4    # f4 = diam^2
     l.s     $f6, PIdiv4     # f6 = PI/4
     mul.s   $f4, $f4 $f6    # f4 = area of pizza
-    div.s   $f4, $f4 $f5    # f4 = pizza per dollar
+    div.s   $f4, $f4 $f0    # f4 = pizza per dollar
 
     swc1    $f4, 64($s5)     # store pizza per dollar to node
 
 
 _return_node: 
-    # Setting next field to null
-    sw		$zero, 68($s5)	
+
     # return pointer of node on successful retrieval 
     move    $v0, $s5
 
@@ -214,11 +211,6 @@ _no_pizza:
 
     # return 0 (v0 is already 0)
     jr      $ra
-
-_zero_PPD: 
-    sw      $zero, 64($s5)   # set PPD to 0
-    b       _return_node
-
 
 # Main
 main: 
@@ -277,4 +269,3 @@ space:  .asciiz " "
 done:   .asciiz "DONE"
 
 PIdiv4: .float 0.7853981634
-two:    .float 2.0
