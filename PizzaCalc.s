@@ -126,6 +126,8 @@ _node_compare_done:
 
 # String printing function: prints string in a0
 str_print:
+    la      $a0, prompt
+    _print:
     li      $v0, 4
     syscall
     jr      $ra
@@ -148,7 +150,6 @@ get_pizza:
     move    $s5, $v0        # pointer to allocated heap in s5
 
     # Getting name
-    la		$a0, name
     jal     str_print       # request name
 
     li      $v0, 8          # read console input into heap
@@ -172,7 +173,6 @@ _remove_nln:
     beqz    $v0, _no_pizza  # if done, return 0
 
 
-    la		$a0, diam
     jal     str_print       # request diameter
 
     li      $v0, 6          # read console input into f0
@@ -180,7 +180,6 @@ _remove_nln:
     mov.s 	$f4, $f0		# copy diameter to f4
 
 
-    la		$a0, cost
     jal     str_print       # request cost
 
     li      $v0, 6          # read console input into f0
@@ -238,17 +237,17 @@ _print_list:
 
     # Printing results
     la      $a0, 0($s0)     # print name
-    jal     str_print
+    jal     _print
 
     la      $a0, space
-    jal     str_print
+    jal     _print
 
     li      $v0, 2          # print pizza per dollar
     lwc1    $f12, 64($s0)
     syscall
 
     la      $a0, nln
-    jal     str_print
+    jal     _print
 
     lw      $s0, 68($s0)    # head = head.next
     b       _print_list       
@@ -261,9 +260,7 @@ _exit:
     jr		$ra	
 
 .data
-name:   .asciiz "Pizza name: " 
-diam:   .asciiz "Pizza diameter: "
-cost:   .asciiz "Pizza cost: "
+prompt: .asciiz "Input: "
 nln:    .asciiz "\n"
 space:  .asciiz " " 
 done:   .asciiz "DONE"
