@@ -18,8 +18,7 @@ insert:
     sw      $s4, -16($sp)
 
 #     // Declare a prev placeholder and an iterator
-#     Pizza* prev = NULL;
-    li      $s3, 0      # prev is in s3, initialize to 0       
+#     Pizza* prev = NULL;       # prev is in s3, 0 by default. 
 #     Pizza* iter = *head;
     move    $s1, $a1    # iter is in s1
     move    $s2, $a0    # current is in s2
@@ -113,8 +112,6 @@ node_compare:
     bnez    $v0, _node_compare_done  # if mismatch, comparison done
 
     # If PPD is equal, compare names
-    la      $a0, 0($a0)
-    la      $a1, 0($a1)
     jal     str_compare
 
 _node_compare_done: 
@@ -125,9 +122,9 @@ _node_compare_done:
     jr      $ra
 
 # String printing function: prints string in a0
-str_print:
+prompt_print:
     la      $a0, prompt
-    _print:
+_print:
     li      $v0, 4
     syscall
     jr      $ra
@@ -150,7 +147,7 @@ get_pizza:
     move    $s5, $v0        # pointer to allocated heap in s5
 
     # Getting name
-    jal     str_print       # request name
+    jal     prompt_print       # request name
 
     li      $v0, 8          # read console input into heap
     la      $a0, 0($s5)
@@ -173,19 +170,19 @@ _remove_nln:
     beqz    $v0, _no_pizza  # if done, return 0
 
 
-    jal     str_print       # request diameter
+    jal     prompt_print       # request diameter
 
     li      $v0, 6          # read console input into f0
     syscall 
     mov.s 	$f4, $f0		# copy diameter to f4
 
 
-    jal     str_print       # request cost
+    jal     prompt_print       # request cost
 
     li      $v0, 6          # read console input into f0
     syscall 
-
     mfc1    $t5, $f0
+
     beqz    $t5, _return_node  # check if cost is 0
 
     # Calculating pizza per dollar
@@ -208,7 +205,7 @@ _no_pizza:
     lw      $s5, -4($sp)
     addi    $sp, 8
 
-    # return 0 (v0 is already 0)
+    # return
     jr      $ra
 
 # Main
@@ -217,8 +214,7 @@ main:
     addi    $sp, $sp -4
     sw		$ra, 0($sp)		
 
-    # Head pointer is s0
-    li      $s0, 0          # initialize head pointer to 0
+    # Head pointer is s0, 0 by default
 
     # Get the next pizza
 _get_pizza_loop: 
