@@ -1,0 +1,20 @@
+Q1. 
+a. 000000 10001 00010 01001 00000 100110 = xor $t1, $s1, $v0
+
+b. lw $t3, 8($s1) = 100011 10001 01011 00000 00000 001000
+
+Q2. 
+a. Not counting labels and data, the non optimized version has 56 instructions and the optimized version has 31 
+instructions. 
+
+b. The non optimized version has 17 load and store instructions, the optimized version has 6 load and store instructions. 
+
+c. Excluding $sp, $fp, and $ra, the non optimized version uses 3 different registers. The optimized versino uses 9 
+different registers. 
+
+d. The non optimized code is in blocks and the optimized code is in strips. This shows that the optimized code is not 
+performing the C instructions line by line, but rather interleaved. 
+
+e. More optimized code seems to make use of more registers and use fewer store and load instructions. Making use of more 
+registers allows the program to complete tasks concurrently without having to wait for used registers to free up, and 
+fewer store and load instructions speeds up data transfer. 
