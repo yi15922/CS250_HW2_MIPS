@@ -121,7 +121,7 @@ _node_compare_done:
     # v0 already contains comparison result
     jr      $ra
 
-# String printing function: prints string in a0
+# String printing function: prints the prompt
 prompt_print:
     la      $a0, prompt
 _print:
