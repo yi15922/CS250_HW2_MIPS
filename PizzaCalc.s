@@ -33,10 +33,8 @@ _str_compare_ret:
     jr      $ra             # return the difference
 
 
-# String printing function: prints the prompt
-prompt_print:
-    la      $a0, prompt
-_print:
+# String printing function
+str_print:
     li      $v0, 4
     syscall
     jr      $ra
@@ -63,18 +61,21 @@ main:
 # with the next field set to null
 # returns pizza pointer in s2
 _get_pizza_loop: 
+    
+
+    # Getting name
+    la      $a0, name
+    jal     str_print    # request name
+
     # Allocating heap space for node
     # |--------------name: 64------------|---PPD: 4----|----next: 4-----|
     li      $a0, 72
     li      $v0, 9
     syscall
     move    $s5, $v0        # pointer to allocated heap in s5
-
-    # Getting name
-    jal     prompt_print    # request name
-
+    
     li      $v0, 8          # read console input into heap
-    la      $a0, 0($s5)
+    move    $a0, $s5
     li      $a1, 64
     syscall
 
@@ -93,15 +94,15 @@ _remove_nln:
     jal     str_compare
     beqz    $v0, _no_pizza  # if done, pass 0 in v0 
 
-
-    jal     prompt_print    # request diameter
+    la      $a0, diam
+    jal     str_print    # request diameter
 
     li      $v0, 6          # read console input into f0
     syscall 
     mov.s 	$f4, $f0		# copy diameter to f4
 
-
-    jal     prompt_print    # request cost
+    la      $a0, cost
+    jal     str_print    # request cost
 
     li      $v0, 6          # read console input into f0
     syscall 
@@ -212,17 +213,17 @@ _head_return:
 _print_list: 
     # Printing results
     la      $a0, 0($s0)     # print name
-    jal     _print
+    jal     str_print
 
     la      $a0, space
-    jal     _print
+    jal     str_print
 
     li      $v0, 2          # print pizza per dollar
     lwc1    $f12, 64($s0)
     syscall
 
     la      $a0, nln
-    jal     _print
+    jal     str_print
 
     lw      $s0, 68($s0)    # head = head.next
     bnez    $s0, _print_list       
@@ -231,11 +232,12 @@ _exit:
     # Restore main return address
     lw      $ra, 0($sp)
     addi    $sp, 4
-    li      $v0, 0
     jr		$ra	
 
 .data
-prompt: .asciiz "Input: "
+name:   .asciiz "Pizza name: "
+diam:   .asciiz "Pizza diameter: "
+cost:   .asciiz "Pizza cost: "
 nln:    .asciiz "\n"
 space:  .asciiz " " 
 done:   .asciiz "DONE"
