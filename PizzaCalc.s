@@ -1,83 +1,19 @@
+# This version of PizzaCalc is the 9th major revision. I have heavily 
+# edited my original solution to reduce the instruction count. To do this, 
+# most of the functions that only one fixed caller have been moved to inside 
+# of main, eliminating most jal's and reducing stack saves for registers. 
+# Doing so also enabled variables to be passed through multiple subfunctions 
+# without needing to be copied to a and v registers at each return, further 
+# reducing instruction count. 
+# 
+# However, as a result, the code is now more difficult to follow for lack
+# of clear divisions between functions that used to be separate. You can review
+# my revision history to see earlier versions of the code that had more
+# instructions but a more reader friendly organization. 
+
 
 .align 2
 .text
-
-
-# Function: inserts new pizza to correct place in linked list
-# gets current pizza from a0
-# gets head pizza from a1
-# returns new head pointer in v0
-
-insert: 
-    # Save return address, s1, s2, s3, s4
-    addi    $sp, -20
-    sw      $ra, 0($sp)
-    sw      $s1, -4($sp)
-    sw      $s2, -8($sp)
-    sw      $s3, -12($sp)
-    sw      $s4, -16($sp)
-
-#     // Declare a prev placeholder and an iterator
-#     Pizza* prev = NULL;       # prev is in s3, 0 by default. 
-#     Pizza* iter = *head;
-    move    $s1, $a1    # iter is in s1
-    move    $s2, $a0    # current is in s2
-    move    $s4, $a1    # head is in s4
-
-# Find the place to insert 
-_find_insert: 
-#     while (iter != NULL && iter->pizzaPerDollar > current->pizzaPerDollar){
-    beqz    $s1, _next          # end the loop if at end of list
-    
-    move    $a0, $s2            # hold current in a0
-    move    $a1, $s1            # hold iter in a1
-
-    jal     node_compare
-    blez    $v0, _next          # if iter <= current, end loop
-
-    # Otherwise keep searching
-#         prev = iter;
-    move    $s3, $s1 
-#         iter = iter->next;
-    lw      $s1, 68($s1)
-#     }
-    b       _find_insert
-    
-_next:
-#   If this is the first node
-#     if (prev == NULL){
-    bnez    $s3, _put_node
-#         current->next = iter; // Add the node to the beginning
-    sw      $s1, 68($s2)
-#         *head = current; // And update the head pointer's pointer
-    move    $s4, $s2
-    b       _head_return
-
-#     }
-            
-# Insert the new node right here
-_put_node: 
-#         prev->next = current;
-    sw      $s2, 68($s3)
-
-#         current->next = iter;
-    sw      $s1, 68($s2)
-#     }
-      #     return;
-_head_return: 
-    # Load head in v0 for return
-    move    $v0, $s4
-
-    # Restore return address, s1, s2, s3, s4
-    lw      $s4, -16($sp)
-    lw      $s3, -12($sp)
-    lw      $s2, -8($sp)
-    lw      $s1, -4($sp)
-    lw      $ra, 0($sp)
-    addi    $sp, 20
-
-    jr      $ra
-# }
 
 # Compares two strings (hopefully) if a0>a1, v0>0
 # takes inputs from a0 and a1
@@ -96,30 +32,6 @@ _str_compare_ret:
     sub     $v0, $t0 $t1    # find difference between t0 and t1, will be 0 if equal
     jr      $ra             # return the difference
 
-# Comparator for nodes
-# Takes current in a0 and iter in a1
-# Returns positive, negative or 0 in v0
-node_compare: 
-    # Save return address
-    addi    $sp, -4
-    sw      $ra, 0($sp)
-
-    # First compare PPD
-    lwc1    $f12, 64($a1)       # hold iter.pizzaPerDollar in f12
-    lwc1    $f13, 64($a0)       # hold current.pizzaPerDollar in f13
-    sub.s   $f0, $f12 $f13      # compare floats
-    mfc1    $v0, $f0            # comparison result is in v0
-    bnez    $v0, _node_compare_done  # if mismatch, comparison done
-
-    # If PPD is equal, compare names
-    jal     str_compare
-
-_node_compare_done: 
-    # Restore return address
-    lw      $ra, 0($sp)
-    addi    $sp, 4
-    # v0 already contains comparison result
-    jr      $ra
 
 # String printing function: prints the prompt
 prompt_print:
@@ -130,15 +42,27 @@ _print:
     jr      $ra
 
 
-# Function: gets user input and creates a pizza node
-# with the next field set to null
-# returns pizza pointer in v0
-get_pizza: 
-    # Save return address, s5
-    addi    $sp, $sp -8
-    sw		$ra, 0($sp)
-    sw      $s5, -4($sp)
 
+
+# Main (many subfunctions are inside main to reduce the need for jal, 
+# thereby reducing the need for callee saved registers, thereby reducing
+# instruction count.) 
+# The entire _get_pizza_loop ultimately yields a pointer to the head
+# of the list in s0
+main: 
+    # Save main's return address
+    addi    $sp, $sp -4
+    sw		$ra, 0($sp)		
+
+    # Head pointer is s0, 0 to begin with, will be 
+    # updated each time _get_pizza_loop runs
+
+    # Get the next pizza
+
+# Subfunction: gets user input and creates a pizza node
+# with the next field set to null
+# returns pizza pointer in s2
+_get_pizza_loop: 
     # Allocating heap space for node
     # |--------------name: 64------------|---PPD: 4----|----next: 4-----|
     li      $a0, 72
@@ -147,7 +71,7 @@ get_pizza:
     move    $s5, $v0        # pointer to allocated heap in s5
 
     # Getting name
-    jal     prompt_print       # request name
+    jal     prompt_print    # request name
 
     li      $v0, 8          # read console input into heap
     la      $a0, 0($s5)
@@ -161,29 +85,29 @@ _remove_nln:
     addi    $t0, 1          # increment by 1 char
     bnez    $t1, _remove_nln  # keep searching for eos
 
-    addi    $t0, -2         # on finding eos, back up 2 chars to nln
+    addi    $t0, -2         # on finding eos, back up 2 bytes to nln
     sb      $zero, 0($t0)   # overwrite nln with eos
 
     # Check for DONE
     la      $a1, done       # place DONE into a1 to compare
     jal     str_compare
-    beqz    $v0, _no_pizza  # if done, return 0
+    beqz    $v0, _no_pizza  # if done, pass 0 in v0 
 
 
-    jal     prompt_print       # request diameter
+    jal     prompt_print    # request diameter
 
     li      $v0, 6          # read console input into f0
     syscall 
     mov.s 	$f4, $f0		# copy diameter to f4
 
 
-    jal     prompt_print       # request cost
+    jal     prompt_print    # request cost
 
     li      $v0, 6          # read console input into f0
     syscall 
-    mfc1    $t5, $f0
 
-    beqz    $t5, _return_node  # check if cost is 0
+    c.eq.s  $f0, $f10       # check for 0 by comparing to an empty register
+    bc1t    _return_node    # if cost is 0 return without calculating
 
     # Calculating pizza per dollar
     mul.s   $f4, $f4 $f4    # f4 = diam^2
@@ -196,41 +120,96 @@ _remove_nln:
 
 _return_node: 
 
-    # return pointer of node on successful retrieval 
-    move    $v0, $s5
+    # passes pointer of node on successful retrieval 
+    # in s2
+    move    $s2, $s5       
 
 _no_pizza: 
-    # Restore return address, s5
-    lw      $ra, 0($sp)
-    lw      $s5, -4($sp)
-    addi    $sp, 8
 
-    # return
-    jr      $ra
+    # jal     get_pizza           # pizza node returned to v1
+    beqz    $v0, _print_list    # check v0, if no more pizza, start printing
 
-# Main
-main: 
-    # Save main's return address
-    addi    $sp, $sp -4
-    sw		$ra, 0($sp)		
 
-    # Head pointer is s0, 0 by default
+    move     $s4, $s0           # make copy of s0 in s4 for insertion
 
-    # Get the next pizza
-_get_pizza_loop: 
-    jal     get_pizza       # pizza node returned to v0
-    beqz    $v0, _print_list  # if no more pizza, start printing
 
-    move    $a0, $v0        # pass current pizza in a0
-    move    $a1, $s0        # pass head of list in a1
-    jal     insert          # call insert and receive head pointer to new list
-    move    $s0, $v0        # copy new head pointer into s0
+# Subfunction: inserts new pizza to correct place in linked list
+# gets current pizza from s2
+# gets head pointer from s4
+# will update s0 with new head when done
+_insert: 
+
+#     // Declare a prev placeholder and an iterator
+#     Pizza* prev = NULL;       
+#     Pizza* iter = *head;
+    move    $s1, $s4    # iter is in s1
+    li      $s3, 0      # prev is in s3
+
+# Find the place to insert 
+_find_insert: 
+#     while (iter != NULL && iter->pizzaPerDollar > current->pizzaPerDollar){
+    beqz    $s1, _next          # end the loop if at end of list
+
+    move    $a0, $s2            # hold current in a0
+    move    $a1, $s1            # hold iter in a1
+
+# Subfunction: comparator for nodes
+# Copies current in a0 and iter in a1
+# Calls str_compare if PPD is equal
+# Puts comparison result in v0
+_node_comparator:
+    # First compare PPD
+    lwc1    $f12, 64($a1)       # hold iter.pizzaPerDollar in f12
+    lwc1    $f13, 64($a0)       # hold current.pizzaPerDollar in f13
+    sub.s   $f0, $f12 $f13      # compare floats
+    mfc1    $v0, $f0            # comparison result is in v0
+    bnez    $v0, _node_compare_done  # if mismatch, comparison done
+
+    # If PPD is equal, compare names
+    jal     str_compare     
+
+_node_compare_done: 
+
+    # v0 contains comparison result
+    blez    $v0, _next          # if iter <= current, end loop
+
+    # Otherwise keep searching
+#         prev = iter;
+    move    $s3, $s1 
+#         iter = iter->next;
+    lw      $s1, 68($s1)
+#     }
+    b       _find_insert        # loop back
+    
+_next:
+#   If this is the first node
+#     if (prev == NULL){
+    bnez    $s3, _put_node
+#         current->next = iter; // Add the node to the beginning
+    sw      $s1, 68($s2)
+#         *head = current; // And update the head pointer's pointer
+    move    $s4, $s2
+    b       _head_return        # skip the next block
+#     }
+            
+# Insert the new node right here
+_put_node: 
+#         prev->next = current;
+    sw      $s2, 68($s3)
+
+#         current->next = iter;
+    sw      $s1, 68($s2)
+#     }
+      #     return;
+_head_return: 
+    # Update the head pointer (s0)
+    move    $s0, $s4
+
 
     b       _get_pizza_loop # keep getting pizzas
     
-_print_list: 
-    beqz    $s0, _exit          # while head != 0
 
+_print_list: 
     # Printing results
     la      $a0, 0($s0)     # print name
     jal     _print
@@ -246,7 +225,7 @@ _print_list:
     jal     _print
 
     lw      $s0, 68($s0)    # head = head.next
-    b       _print_list       
+    bnez    $s0, _print_list       
 
 _exit: 
     # Restore main return address
