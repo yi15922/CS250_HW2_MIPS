@@ -46,20 +46,20 @@ str_print:
 # thereby reducing the need for callee saved registers, thereby reducing
 # instruction count.) 
 # The entire _get_pizza_loop ultimately yields a pointer to the head
-# of the list in s0
+# of the list in s4
 main: 
     # Save main's return address
     addi    $sp, $sp -4
     sw		$ra, 0($sp)		
 
-    # Head pointer is s0, 0 to begin with, will be 
+    # Head pointer is s4, 0 to begin with, will be 
     # updated each time _get_pizza_loop runs
 
     # Get the next pizza
 
 # Subfunction: gets user input and creates a pizza node
 # with the next field set to null
-# returns pizza pointer in s2
+# returns pizza pointer in s5
 _get_pizza_loop: 
     
 
@@ -92,10 +92,10 @@ _remove_nln:
     # Check for DONE
     la      $a1, done       # place DONE into a1 to compare
     jal     str_compare
-    beqz    $v0, _no_pizza  # if done, pass 0 in v0 
+    beqz    $v0, _return_node  # if done, pass 0 in v0 
 
     la      $a0, diam
-    jal     str_print    # request diameter
+    jal     str_print       # request diameter
 
     li      $v0, 6          # read console input into f0
     syscall 
@@ -107,7 +107,7 @@ _remove_nln:
     li      $v0, 6          # read console input into f0
     syscall 
 
-    c.eq.s  $f0, $f10       # check for 0 by comparing to an empty register
+    c.eq.s  $f0, $f10       # check if diameter is 0 by comparing to an empty register
     bc1t    _return_node    # if cost is 0 return without calculating
 
     # Calculating pizza per dollar
@@ -120,22 +120,11 @@ _remove_nln:
 
 
 _return_node: 
-
-    # passes pointer of node on successful retrieval 
-    # in s2
-    move    $s2, $s5       
-
-_no_pizza: 
-
-    # jal     get_pizza           # pizza node returned to v1
+    # passes pointer of node in s5
     beqz    $v0, _print_list    # check v0, if no more pizza, start printing
 
-
-    move     $s4, $s0           # make copy of s0 in s4 for insertion
-
-
 # Subfunction: inserts new pizza to correct place in linked list
-# gets current pizza from s2
+# gets current pizza from s5
 # gets head pointer from s4
 # will update s0 with new head when done
 _insert: 
@@ -151,7 +140,7 @@ _find_insert:
 #     while (iter != NULL && iter->pizzaPerDollar > current->pizzaPerDollar){
     beqz    $s1, _next          # end the loop if at end of list
 
-    move    $a0, $s2            # hold current in a0
+    move    $a0, $s5            # hold current in a0
     move    $a1, $s1            # hold iter in a1
 
 # Subfunction: comparator for nodes
@@ -187,46 +176,43 @@ _next:
 #     if (prev == NULL){
     bnez    $s3, _put_node
 #         current->next = iter; // Add the node to the beginning
-    sw      $s1, 68($s2)
+    sw      $s1, 68($s5)
 #         *head = current; // And update the head pointer's pointer
-    move    $s4, $s2
-    b       _head_return        # skip the next block
+    move    $s4, $s5
+    b       _get_pizza_loop     # skip the next block
 #     }
             
 # Insert the new node right here
 _put_node: 
 #         prev->next = current;
-    sw      $s2, 68($s3)
+    sw      $s5, 68($s3)
 
 #         current->next = iter;
-    sw      $s1, 68($s2)
+    sw      $s1, 68($s5)
 #     }
-      #     return;
-_head_return: 
+
     # Update the head pointer (s0)
-    move    $s0, $s4
-
-
     b       _get_pizza_loop # keep getting pizzas
     
 
+# Remember, head is in s4
 _print_list: 
     # Printing results
-    la      $a0, 0($s0)     # print name
+    la      $a0, 0($s4)     # print name
     jal     str_print
 
     la      $a0, space
     jal     str_print
 
     li      $v0, 2          # print pizza per dollar
-    lwc1    $f12, 64($s0)
+    lwc1    $f12, 64($s4)
     syscall
 
     la      $a0, nln
     jal     str_print
 
-    lw      $s0, 68($s0)    # head = head.next
-    bnez    $s0, _print_list       
+    lw      $s4, 68($s4)    # head = head.next
+    bnez    $s4, _print_list       
 
 _exit: 
     # Restore main return address
